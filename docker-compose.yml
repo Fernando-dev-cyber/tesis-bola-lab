@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # Base de Datos Relacional
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: bola_postgres
+    environment:
+      POSTGRES_USER: user_app
+      POSTGRES_PASSWORD: password_secure_123
+      POSTGRES_DB: bola_lab_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - bola_network
+
+  # Caché de Atributos de Pertenencia (ABAC)
+  redis_cache:
+    image: redis:7-alpine
+    container_name: bola_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - bola_network
+
+  # API Backend vulnerable / protegida
+  fastapi_app:
+    build: .
+    container_name: bola_fastapi_backend
+    environment:
+      - DATABASE_URL=postgresql://user_app:password_secure_123@postgres_db:5432/bola_lab_db
+      - REDIS_HOST=redis_cache
+      - REDIS_PORT=6379
+      - JWT_SECRET=super_secret_jwt_key_2026
+    ports:
+      - "8000:8000"
+
+# PUENTE EN TIEMPO REAL:
+    volumes:
+      - .:/app    # El punto "." monta la raíz actual en /app dentro del contenedor
+    # SERVIDOR EN MODO RECARGA:
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+    depends_on:
+      - postgres_db
+      - redis_cache
+    networks:
+      - bola_network
+
+  # API Gateway Perimétrico (Capa 1)
+  krakend_gateway:
+    image: devopsfaith/krakend:2.6
+    container_name: bola_krakend_gateway
+    volumes:
+      - ./krakend.json:/etc/krakend/krakend.json
+    ports:
+      - "8080:8080"
+    depends_on:
+      - fastapi_app
+    networks:
+      - bola_network
+
+networks:
+  bola_network:
+    driver: bridge
+
+volumes:
+  pgdata:

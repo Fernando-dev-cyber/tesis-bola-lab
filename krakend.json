@@ -1,0 +1,31 @@
+{
+  "$schema": "https://www.krakend.io/schema/v2.6/krakend.json",
+  "version": 3,
+  "name": "BOLA Mitigation Gateway",
+  "port": 8080,
+  "cache_ttl": "300s",
+  "timeout": "3s",
+  "endpoints": [
+    {
+      "endpoint": "/api/v1/cuentas/{id}",
+      "method": "GET",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/v1/cuentas/{id}",
+          "method": "GET",
+          "host": [
+            "http://fastapi_app:8000"
+          ]
+        }
+      ],
+      "extra_config": {
+        "qos/ratelimit/router": {
+          "max_rate": 100,
+          "client_max_rate": 20,
+          "strategy": "ip"
+        }
+      }
+    }
+  ]
+}
